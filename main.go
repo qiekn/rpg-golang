@@ -9,7 +9,9 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
+	"github.com/qiekn/rpg-go/animations"
 	"github.com/qiekn/rpg-go/entities"
+	"github.com/qiekn/rpg-go/spritesheet"
 )
 
 ////////////////////////////////////////////////////////////////////////
@@ -17,14 +19,16 @@ import (
 ////////////////////////////////////////////////////////////////////////
 
 type Game struct {
-	player       *entities.Player
-	enemies      []*entities.Enemy
-	potions      []*entities.Potion
-	tilemapJSON  *TilemapJSON
-	tilesets     []Tileset
-	tilemapImage *ebiten.Image
-	camera       *Camera
-	colliders    []image.Rectangle
+	player            *entities.Player
+	playerSpriteSheet *spritesheet.SpriteSheet
+	animationFrame    int
+	enemies           []*entities.Enemy
+	potions           []*entities.Potion
+	tilemapJSON       *TilemapJSON
+	tilesets          []Tileset
+	tilemapImage      *ebiten.Image
+	camera            *Camera
+	colliders         []image.Rectangle
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -56,6 +60,11 @@ func (g *Game) Update() error {
 
 	g.player.Y += g.player.Dy
 	CheckCollisionVertical(g.player.Sprite, g.colliders)
+
+	activeAnim := g.player.ActiveAnimation(int(g.player.Dx), int(g.player.Dy))
+	if activeAnim != nil {
+		activeAnim.Update()
+	}
 
 	// enemies AI
 	for _, sprite := range g.enemies {
@@ -138,10 +147,18 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 
+	playerFrame := 0
+	activeAnim := g.player.ActiveAnimation(int(g.player.Dx), int(g.player.Dy))
+	if activeAnim != nil {
+		playerFrame = activeAnim.Frame()
+	}
+
 	// draw player
 	opts.GeoM.Translate(g.player.X, g.player.Y)
 	opts.GeoM.Translate(g.camera.X, g.camera.Y)
-	screen.DrawImage(g.player.Img.SubImage(image.Rect(0, 0, 16, 16)).(*ebiten.Image), &opts)
+	screen.DrawImage(g.player.Img.SubImage(
+		g.playerSpriteSheet.Rect(playerFrame),
+	).(*ebiten.Image), &opts)
 	opts.GeoM.Reset()
 
 	// draw enemies
@@ -219,6 +236,8 @@ func main() {
 		log.Fatal(err)
 	}
 
+	playerSpriteSheet := spritesheet.NewSpriteSheet(4, 7, 16)
+
 	game := Game{
 		player: &entities.Player{
 			Sprite: &entities.Sprite{
@@ -227,7 +246,14 @@ func main() {
 				Y:   50.0,
 			},
 			Health: 3,
+			Animation: map[entities.PlayerState]*animations.Animation{
+				entities.Up:    animations.NewAnimation(5, 13, 4, 20.0),
+				entities.Down:  animations.NewAnimation(4, 12, 4, 20.0),
+				entities.Left:  animations.NewAnimation(6, 14, 4, 20.0),
+				entities.Right: animations.NewAnimation(7, 15, 4, 20.0),
+			},
 		},
+		playerSpriteSheet: playerSpriteSheet,
 		enemies: []*entities.Enemy{
 			{
 				Sprite: &entities.Sprite{
