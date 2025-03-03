@@ -20,6 +20,7 @@ type Game struct {
 	enemies      []*entities.Enemy
 	potions      []*entities.Potion
 	tilemapJSON  *TilemapJSON
+	tilesets     []Tileset
 	tilemapImage *ebiten.Image
 	camera       *Camera
 }
@@ -78,34 +79,39 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-
 	// fill the screen with a color
 	screen.Fill(color.RGBA{120, 180, 255, 255})
 
 	// used to set the translation
 	opts := ebiten.DrawImageOptions{}
 
-	// loop over the layers
-	for _, layer := range g.tilemapJSON.Layers {
+	for layerIndex, layer := range g.tilemapJSON.Layers {
+		// loop over the layers
+		// loop over the tiles in the layer
 		for index, id := range layer.Data {
+
+			// skip empty tiles (ID 0 represents an empty tile in the tilemap)
+			if id == 0 {
+				continue
+			}
+
+			// get the tile position of the tile
 			x := index % layer.Width
 			y := index / layer.Width
 
+			// convert the tile postion to pixel position
 			x *= 16
 			y *= 16
 
-			srcX := (id - 1) % 22
-			srcY := (id - 1) / 22
-
-			srcX *= 16
-			srcY *= 16
+			img := g.tilesets[layerIndex].Img(id)
 
 			opts.GeoM.Translate(float64(x), float64(y))
+			// TODO: Bounds? <2025-03-03 13:14, @qiekn> //
+			opts.GeoM.Translate(0.0, -(float64(img.Bounds().Dy()) + 16))
 			opts.GeoM.Translate(g.camera.X, g.camera.Y)
-			screen.DrawImage(
-				g.tilemapImage.SubImage(image.Rect(srcX, srcY, srcX+16, srcY+16)).(*ebiten.Image),
-				&opts,
-			)
+			screen.DrawImage(img, &opts)
+
+			// reset the opts for the next tile
 			opts.GeoM.Reset()
 		}
 	}
@@ -172,6 +178,11 @@ func main() {
 		log.Fatal(err)
 	}
 
+	tilesets, err := tilemapJSON.GenTilesets()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	game := Game{
 		player: &entities.Player{
 			Sprite: &entities.Sprite{
@@ -211,6 +222,7 @@ func main() {
 		},
 		tilemapJSON:  tilemapJSON,
 		tilemapImage: tilemapImg,
+		tilesets:     tilesets,
 		camera:       NewCamera(0.0, 0.0),
 	}
 
