@@ -8,6 +8,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/qiekn/rpg-go/entities"
 )
 
@@ -23,6 +24,7 @@ type Game struct {
 	tilesets     []Tileset
 	tilemapImage *ebiten.Image
 	camera       *Camera
+	colliders    []image.Rectangle
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -31,33 +33,53 @@ type Game struct {
 
 func (g *Game) Update() error {
 
+	g.player.Dx = 0.0
+	g.player.Dy = 0.0
+
 	// move the player based on keyboard input (wsad)
 	if ebiten.IsKeyPressed(ebiten.KeyW) {
-		g.player.Y -= 2
+		g.player.Dy -= 2
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyS) {
-		g.player.Y += 2
+		g.player.Dy += 2
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyA) {
-		g.player.X -= 2
+		g.player.Dx -= 2
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyD) {
-		g.player.X += 2
+		g.player.Dx += 2
 	}
 
+	// apply speed & collider check
+	g.player.X += g.player.Dx
+	CheckCollisionHorizontal(g.player.Sprite, g.colliders)
+
+	g.player.Y += g.player.Dy
+	CheckCollisionVertical(g.player.Sprite, g.colliders)
+
+	// enemies AI
 	for _, sprite := range g.enemies {
+		sprite.Dx = 0.0
+		sprite.Dy = 0.0
+
 		if sprite.FollowsPlayer {
 			if sprite.X < g.player.X {
-				sprite.X += 1
+				sprite.Dx += 1
 			} else if sprite.X > g.player.X {
-				sprite.X -= 1
+				sprite.Dx -= 1
 			}
 			if sprite.Y < g.player.Y {
-				sprite.Y += 1
+				sprite.Dy += 1
 			} else if sprite.Y > g.player.Y {
-				sprite.Y -= 1
+				sprite.Dy -= 1
 			}
 		}
+
+		sprite.X += sprite.Dx
+		CheckCollisionHorizontal(sprite.Sprite, g.colliders)
+
+		sprite.Y += sprite.Dy
+		CheckCollisionVertical(sprite.Sprite, g.colliders)
 	}
 
 	for _, potion := range g.potions {
@@ -136,6 +158,20 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		opts.GeoM.Translate(g.camera.X, g.camera.Y)
 		screen.DrawImage(potion.Img.SubImage(image.Rect(0, 0, 16, 16)).(*ebiten.Image), &opts)
 		opts.GeoM.Reset()
+	}
+
+	// draw colliders
+	for _, collider := range g.colliders {
+		vector.StrokeRect(
+			screen,
+			float32(collider.Min.X)+float32(g.camera.X),
+			float32(collider.Min.Y)+float32(g.camera.Y),
+			float32(collider.Dx()),
+			float32(collider.Dy()),
+			1.0,
+			color.RGBA{0, 180, 0, 255},
+			true,
+		)
 	}
 }
 
@@ -224,9 +260,52 @@ func main() {
 		tilemapImage: tilemapImg,
 		tilesets:     tilesets,
 		camera:       NewCamera(0.0, 0.0),
+		colliders: []image.Rectangle{
+			image.Rect(100, 100, 116, 116),
+		},
 	}
 
 	if err := ebiten.RunGame(&game); err != nil {
 		log.Fatal(err)
+	}
+}
+
+////////////////////////////////////////////////////////////////////////
+//                          Helper Functions                          //
+////////////////////////////////////////////////////////////////////////
+
+func CheckCollisionHorizontal(sprite *entities.Sprite, colliders []image.Rectangle) {
+	for _, collider := range colliders {
+		if collider.Overlaps(
+			image.Rect(int(sprite.X),
+				int(sprite.Y),
+				int(sprite.X)+16.0,
+				int(sprite.Y)+16.0),
+		) {
+			// P.S. the sprite sprite is drawn from the top left corner
+			if sprite.Dx > 0.0 {
+				sprite.X = float64(collider.Min.X) - 16.0
+			} else if sprite.Dx < 0.0 {
+				sprite.X = float64(collider.Max.X)
+			}
+		}
+	}
+}
+
+func CheckCollisionVertical(sprite *entities.Sprite, colliders []image.Rectangle) {
+	for _, collider := range colliders {
+		if collider.Overlaps(
+			image.Rect(int(sprite.X),
+				int(sprite.Y),
+				int(sprite.X)+16.0,
+				int(sprite.Y)+16.0),
+		) {
+			// P.S. the sprite sprite is drawn from the top left corner
+			if sprite.Dy > 0.0 {
+				sprite.Y = float64(collider.Min.Y) - 16.0
+			} else if sprite.Dy < 0.0 {
+				sprite.Y = float64(collider.Max.Y)
+			}
+		}
 	}
 }
