@@ -10,6 +10,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/qiekn/rpg-go/constants"
 )
 
 // every tileset must be able to give an image given an id
@@ -38,10 +39,10 @@ func (u *UniformTileset) Img(id int) *ebiten.Image {
 	srcY := id / 22
 
 	// convert the src tile pos to pixel src position
-	srcX *= 16
-	srcY *= 16
+	srcX *= constants.Tilesize
+	srcY *= constants.Tilesize
 
-	return u.img.SubImage(image.Rect(srcX, srcY, srcX+16, srcY+16)).(*ebiten.Image)
+	return u.img.SubImage(image.Rect(srcX, srcY, srcX+constants.Tilesize, srcY+constants.Tilesize)).(*ebiten.Image)
 }
 
 ////////////////////////////////////////////////////////////////////////
