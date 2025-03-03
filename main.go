@@ -21,6 +21,7 @@ type Game struct {
 	potions      []*entities.Potion
 	tilemapJSON  *TilemapJSON
 	tilemapImage *ebiten.Image
+	camera       *Camera
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -65,6 +66,14 @@ func (g *Game) Update() error {
 		}
 	}
 
+	g.camera.FollowTarget(g.player.X+8, g.player.Y+8, 320, 240)
+	g.camera.Constrain(
+		float64(g.tilemapJSON.Layers[0].Width)*16.0,
+		float64(g.tilemapJSON.Layers[0].Height)*16.0,
+		320,
+		240,
+	)
+
 	return nil
 }
 
@@ -92,6 +101,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			srcY *= 16
 
 			opts.GeoM.Translate(float64(x), float64(y))
+			opts.GeoM.Translate(g.camera.X, g.camera.Y)
 			screen.DrawImage(
 				g.tilemapImage.SubImage(image.Rect(srcX, srcY, srcX+16, srcY+16)).(*ebiten.Image),
 				&opts,
@@ -102,12 +112,14 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	// draw player
 	opts.GeoM.Translate(g.player.X, g.player.Y)
+	opts.GeoM.Translate(g.camera.X, g.camera.Y)
 	screen.DrawImage(g.player.Img.SubImage(image.Rect(0, 0, 16, 16)).(*ebiten.Image), &opts)
 	opts.GeoM.Reset()
 
 	// draw enemies
 	for _, sprite := range g.enemies {
 		opts.GeoM.Translate(sprite.X, sprite.Y)
+		opts.GeoM.Translate(g.camera.X, g.camera.Y)
 		screen.DrawImage(sprite.Img.SubImage(image.Rect(0, 0, 16, 16)).(*ebiten.Image), &opts)
 		opts.GeoM.Reset()
 	}
@@ -115,6 +127,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// draw potions
 	for _, potion := range g.potions {
 		opts.GeoM.Translate(potion.X, potion.Y)
+		opts.GeoM.Translate(g.camera.X, g.camera.Y)
 		screen.DrawImage(potion.Img.SubImage(image.Rect(0, 0, 16, 16)).(*ebiten.Image), &opts)
 		opts.GeoM.Reset()
 	}
@@ -198,6 +211,7 @@ func main() {
 		},
 		tilemapJSON:  tilemapJSON,
 		tilemapImage: tilemapImg,
+		camera:       NewCamera(0.0, 0.0),
 	}
 
 	if err := ebiten.RunGame(&game); err != nil {
