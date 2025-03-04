@@ -2,7 +2,6 @@ package tileset
 
 import (
 	"encoding/json"
-	"fmt"
 	"image"
 	"os"
 	"path/filepath"
@@ -141,6 +140,5 @@ func PathMagic(path_ string) (path string) {
 	path = strings.TrimPrefix(path, "../")
 	path = strings.TrimPrefix(path, "../")
 	path = filepath.Join("assets/", path)
-	fmt.Println("magic path: ", path)
 	return path
 }
